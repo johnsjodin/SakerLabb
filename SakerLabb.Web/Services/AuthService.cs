@@ -24,9 +24,9 @@ public class AuthService
 
         context.Response.Cookies.Append(CookieName, value, new CookieOptions
         {
-            HttpOnly = false,
-            Secure = false,
-            SameSite = SameSiteMode.None,
+            HttpOnly = true,
+            SameSite = SameSiteMode.Lax,
+            Secure = context.Request.IsHttps,
             Expires = DateTimeOffset.UtcNow.AddDays(30)
         });
     }

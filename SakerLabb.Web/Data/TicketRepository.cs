@@ -18,13 +18,18 @@ public class TicketRepository
         using var connection = _db.Open();
         var command = connection.CreateCommand();
 
-        var order = string.IsNullOrWhiteSpace(sort) ? "t.Id DESC" : sort;
+        var order = ResolveSort(sort);
         var where = string.IsNullOrWhiteSpace(search)
             ? "1=1"
-            : "(t.Title LIKE '%" + search + "%' OR t.Body LIKE '%" + search + "%')";
+            : "(t.Title LIKE $search OR t.Body LIKE $search)";
 
         command.CommandText = "SELECT t.Id, t.Title, t.Body, t.Status, t.Priority, t.OwnerId, t.Internal, t.Created, u.Username "
             + "FROM Tickets t JOIN Users u ON u.Id = t.OwnerId WHERE " + where + " ORDER BY " + order;
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            command.Parameters.AddWithValue("$search", $"%{search}%");
+        }
 
         _logger.LogInformation("Ärendesökning utförd med fritext {Search} och sortering {Sort}", search, order);
 
@@ -36,7 +41,8 @@ public class TicketRepository
         using var connection = _db.Open();
         var command = connection.CreateCommand();
         command.CommandText = "SELECT t.Id, t.Title, t.Body, t.Status, t.Priority, t.OwnerId, t.Internal, t.Created, u.Username "
-            + "FROM Tickets t JOIN Users u ON u.Id = t.OwnerId WHERE t.Id = " + id;
+            + "FROM Tickets t JOIN Users u ON u.Id = t.OwnerId WHERE t.Id = $id";
+        command.Parameters.AddWithValue("$id", id);
 
         return Read(command).FirstOrDefault();
     }
@@ -45,7 +51,8 @@ public class TicketRepository
     {
         using var connection = _db.Open();
         var command = connection.CreateCommand();
-        command.CommandText = "SELECT Id, TicketId, Author, Text, Created FROM Comments WHERE TicketId = " + ticketId;
+        command.CommandText = "SELECT Id, TicketId, Author, Text, Created FROM Comments WHERE TicketId = $ticketId";
+        command.Parameters.AddWithValue("$ticketId", ticketId);
 
         var comments = new List<Comment>();
         using var reader = command.ExecuteReader();
@@ -68,8 +75,11 @@ public class TicketRepository
     {
         using var connection = _db.Open();
         var command = connection.CreateCommand();
-        command.CommandText = "INSERT INTO Comments (TicketId, Author, Text, Created) VALUES ("
-            + ticketId + ", '" + author + "', '" + text + "', '" + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm") + "')";
+        command.CommandText = "INSERT INTO Comments (TicketId, Author, Text, Created) VALUES ($ticketId, $author, $text, $created)";
+        command.Parameters.AddWithValue("$ticketId", ticketId);
+        command.Parameters.AddWithValue("$author", author);
+        command.Parameters.AddWithValue("$text", text);
+        command.Parameters.AddWithValue("$created", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm"));
         command.ExecuteNonQuery();
     }
 
@@ -77,8 +87,21 @@ public class TicketRepository
     {
         using var connection = _db.Open();
         var command = connection.CreateCommand();
-        command.CommandText = "UPDATE Tickets SET Status = '" + status + "' WHERE Id = " + ticketId;
+        command.CommandText = "UPDATE Tickets SET Status = $status WHERE Id = $ticketId";
+        command.Parameters.AddWithValue("$status", status);
+        command.Parameters.AddWithValue("$ticketId", ticketId);
         command.ExecuteNonQuery();
+    }
+
+    private static string ResolveSort(string? sort)
+    {
+        return sort switch
+        {
+            "t.Priority ASC" => "t.Priority ASC",
+            "t.Status ASC" => "t.Status ASC",
+            "t.Id DESC" => "t.Id DESC",
+            _ => "t.Id DESC"
+        };
     }
 
     private static List<Ticket> Read(SqliteCommand command)
