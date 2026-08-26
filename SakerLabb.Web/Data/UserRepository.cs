@@ -27,7 +27,10 @@ public class UserRepository
 
         if (user is not null)
         {
-            _logger.LogInformation("Inloggning lyckades för {Username}", username);
+            var safeUsername = (username ?? string.Empty)
+                .Replace("\r", string.Empty)
+                .Replace("\n", string.Empty);
+            _logger.LogInformation("Inloggning lyckades för {Username}", safeUsername);
         }
 
         return user;
