@@ -61,7 +61,7 @@ public class AccountController : Controller
             return Redirect("/reset?error=2");
         }
 
-        _logger.LogInformation("Lösenord återställt med token {Token}", token);
+        _logger.LogInformation("Lösenord återställt.");
         return Redirect("/login?reset=1");
     }
 
